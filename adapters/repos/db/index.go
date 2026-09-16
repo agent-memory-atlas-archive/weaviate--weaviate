@@ -1251,6 +1251,10 @@ func (i *Index) IterateShards(ctx context.Context, cb func(index *Index, shard S
 // error group outlives the shard walk. A cold lazy shard has no store to
 // refcount; its file surgery holds shardCreateLocks in shard_lazyloader.go.
 func pinLoadedShard(shard ShardLike) (release func(), ok bool) {
+	// Never Load a recovering shard: it has no store to pin until its promote.
+	if rec, isRec := shard.(*RecoveringShard); isRec && rec.IsRecovering() {
+		return func() {}, false
+	}
 	if lazy, isLazy := shard.(*LazyLoadShard); isLazy && !lazy.isLoaded() {
 		return func() {}, true
 	}
